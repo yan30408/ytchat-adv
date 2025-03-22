@@ -55,6 +55,7 @@ $ROOM = HTML::Template->new(
 $ROOM->param(ver => $::ver);
 
 $ROOM->param(roomId => $id);
+$ROOM->param(isPresent => !$::in{'log'} ? 1 : 0);
 $ROOM->param(title => $rooms{$id}{'name'});
 $ROOM->param(subtitle => $::in{'log'}?$::in{'log'}:'現行ログ');
 
@@ -96,8 +97,10 @@ my $before_tab;
 my $before_name;
 my $before_color;
 my $before_user;
+my $before_address;
 my @bgms; my %bgms;
 my @bgis; my %bgis;
+my @sheet_names; my %sheets;
 my %stat;
 my %stat_count;
 my %user_color;
@@ -114,13 +117,15 @@ foreach (<$FH>){
   }
   
   my ($num, $date, $tab, $name, $color, $comm, $info, $system, $user, $address) = split(/<>/, $_);
+  $color = '' if $color eq 'undefined' || $color eq 'null';
+  $color =~ s/^#{2,}/#/;
   my $userid;
   $user =~ s/<(.+?)>$/$userid = $1; '';/e;
   $user_color{$name} = $color;
   
   my $openlater;
   if($address){
-    if($address =~ s/\#$//){ $openlater = 1; } #青秘話=1
+    if($address =~ s/\#$//){ $openlater = '#'; } #青秘話=#
     # 過去ログ
     if($::in{"log"}){
       #赤秘話なら非表示（青は通す）
@@ -143,10 +148,10 @@ foreach (<$FH>){
     next;
   }
   elsif($system =~ /^image$/){
-    $info = '<img loading="lazy" src="' . $info . '">';
+    $info = '<img loading="lazy" src="' . resolveCloudAssetUrl($info) . '">';
   }
   elsif($system =~ /^bgm:([0-9]+):(.+)$/){
-    my ($url, $vol) = ($2, $1);
+    my ($url, $vol) = (resolveCloudAssetUrl($2), $1);
     $comm = '<span class="bgm-border" data-url="'.$url.'" data-title="'.$info.'" data-vol="'.$vol.'"></span>'.$comm;
     if(!$bgms{$url}){ push(@bgms, $url) }
     $bgms{$url} = ' <a class="link-yt" href="'.$url.'" target="_blank">'.$info.'</a>';
@@ -156,8 +161,8 @@ foreach (<$FH>){
   elsif($system =~ /^bgm$/){
     $comm = '<span class="bgm-border"></span>'.$comm;
   }
-  elsif($system =~ /^bg:(.+)$/){
-    $comm = '<span class="bg-border" data-url="'.$1.'" data-title="'.$info.'"></span>'.$comm;
+  elsif($system =~ /^bg:(?:(resize|tiling):)?(.+)$/){
+    $comm = '<span class="bg-border" data-mode="'.$1.'" data-url="'.resolveCloudAssetUrl($2).'" data-title="'.$info.'"></span>'.$comm;
     if(!$bgis{$1}){ push(@bgis, $1) }
     $bgis{$1} = $info;
   }
@@ -172,6 +177,15 @@ foreach (<$FH>){
   }
   elsif($system =~ /^tab:([0-9]+)=(.*?)$/){
     if($2){ $tabs[$1-1] = "$2"; }
+  }
+  elsif($system =~ /^unit:.*(?:\(|\|\s+)url>(http.+?)(?:\)|\s+\|)/) {
+    my $sheetUrl = $1;
+    my $unitName = $info =~ /\[{2}(.+?)>https?.+]{2}/ ? $1 : $name;
+
+    if (!$sheets{$unitName}) {
+      push(@sheet_names, $unitName);
+      $sheets{$unitName} = $sheetUrl;
+    }
   }
 
   if(!$tabs[$tab-1]){ $tabs[$tab-1] = "タブ${tab}"; }
@@ -191,8 +205,7 @@ foreach (<$FH>){
       $_ =~ s#(\[.*?\])#<i>$1</i>#g;
       $_ =~ s# = ([0-9a-z.∞]+)$# = <strong>$1</strong>#gi;
       $_ =~ s# = ([0-9a-z.∞]+)# = <b>$1</b>#gi;
-      $_ =~ s# → (成功)$# → <strong>$1</strong>#gi;
-      $_ =~ s# → (失敗)$# → <strong class='fail'>$1</strong>#gi;
+      $_ =~ s# → ((?:成功|(?:自動)?失敗|／)+)$#" → ".stylizeSuccessAndFailure($1)#gie;
       #クリティカルをグラデにする
       my $crit = $_ =~ s/(クリティカル!\])/$1<em>/g;
       while($crit > 0){ $_ .= "</em>"; $crit--; }
@@ -202,6 +215,13 @@ foreach (<$FH>){
       $_ =~ s#\[([0-9,]+?)\.\.\.\]#<em class='fail'>[$1]</em>#g;
       #
       $_ =~ s#\{(.*?)\}#{<span class='division'>$1</span>}#g;
+    }
+    elsif($system eq 'choice') {
+      if($_ =~ s#(\(.+\) → )(.+?)$#$1#){
+        foreach my $result (split ",", $2) {
+          $_ .= "<i class='result'>$result</i>";
+        }
+      }
     }
     elsif($system =~ /^unit/){
       if(1){
@@ -219,10 +239,10 @@ foreach (<$FH>){
   $info = join('<br>', @infos);
 
   if($system =~ /^(choice:list|deck)/){
-    $info =~ s#\[(.*?)\](?=\[|<br>|$)#<i>$1</i>#g;
+    $info =~ s#\[(.*?)\](?=\[|<br>|$)#<b class='result'>$1</b>#g;
   }
   elsif($system =~ /^(choice:table)/){
-    $info =~ s#(?<=:) \[(.*?)\](?=.+? → |$)#<i>$1</i>#g;
+    $info =~ s#(?<=:) \[(.*?)\](?=.+? → |$)#<b class='result'>$1</b>#g;
   }
 
   $info = tagConvert($info) if $tagconvert_on && $system =~ /^(topic|memo|choice|deck)/; #文字装飾
@@ -243,7 +263,15 @@ foreach (<$FH>){
   elsif($system =~ /^rewritename:([0-9]+)$/){
     my $target = $1;
     foreach my $data (@logs){
-      if($data->{'NUM'} eq $target){ $data->{'NAME'} = $name; $data->{'COLOR'} = $color; }
+      if($data->{'NUM'} eq $target){
+        if($data->{'CLASS'} =~ 'secret'){
+          $data->{'NAME'} =~ s/^.* > (.+?)$/$name > $1/;
+        }
+        else {
+          $data->{'NAME'} = $name;
+        }
+        $data->{'COLOR'} = $color;
+      }
     }
     next;
   }
@@ -256,10 +284,11 @@ foreach (<$FH>){
      $class .= $openlater ? 'openlater ' : '';
      $class .= $tab == 1 ? 'main ' : '';
   
-  if ( $before_tab   ne $tab
-    || $before_name  ne $name
-    || $before_color ne $color
-    || $before_user  ne $user
+  if ( $before_tab     ne $tab
+    || $before_name    ne $name
+    || $before_color   ne $color
+    || $before_user    ne $user
+    || $before_address ne $address.$openlater
     || ($name eq '!SYSTEM')
   ){
     push(@logs, {
@@ -288,6 +317,7 @@ foreach (<$FH>){
   $before_name  = $name;
   $before_color = $color;
   $before_user  = $user;
+  $before_address  = $address.$openlater;
 }
 close($FH);
 
@@ -299,6 +329,10 @@ push(@bgm_list,{ "TITLE"  => $bgms{$_} }) foreach @bgms;
 push(@bgi_list,{ "TITLE"  => $bgis{$_} }) foreach @bgis;
 $ROOM->param(BgmList => \@bgm_list);
 $ROOM->param(BgiList => \@bgi_list);
+
+my @sheet_list;
+push(@sheet_list,{ 'NAME' => $_, 'URL' => $sheets{$_} }) foreach @sheet_names;
+$ROOM->param(SheetList => \@sheet_list);
 
 ## 出目統計
 {
@@ -442,6 +476,7 @@ if($error_flag){
 ###################
 ### CSS
 $ROOM->param(customCSS => $set::custom_css);
+$ROOM->param(customCSSVersion => (stat $set::custom_css)[9]) if $set::custom_css ne '';
 
 ###################
 ### 出力

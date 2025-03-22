@@ -467,15 +467,32 @@ body {
 #main-form input#form-color-text {
   width: 7em;
 }
-#main-form .comm-config-area {
+#main-form .comm-area {
+  margin-right: 2rem;
+}
+#main-form .address-area {
+  margin-right: 2rem;
+}
+.comm-config-area {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-end;
+  margin-bottom: 2px;
 }
-#main-form .comm-area {
-  margin-right: 2rem;
+.chat .comm-config-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 0 1.2rem;
 }
+.chat .comm-config-area select {
+  width: 100%;
+  font-size: 1.2rem;
+  padding: .3rem .5rem;
+}
+.chat .comm-config-area .address-area::before { font-size: 1.2rem; }
+.chat .comm-config-area .address-area label { width: 3em; }
+
 
 /* 装飾ボタン */
 .decoration-buttons {
@@ -491,6 +508,26 @@ body {
   width: max-content;
   border-top: 0;
   border-radius: 0 0 .8rem .8rem;
+
+  > span[data-unit-name]:not([data-unit-name=""]) {
+    display: inline-flex;
+    align-items: center;
+    height: max-content;
+
+    &::after {
+      content: ":" attr(data-unit-name);
+      display: inline-block;
+      max-width: 10em;
+      height: max-content;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      
+      @media screen and (width < 1425px) {
+        display: none;
+      }
+    }
+  }
 }
 .check-buttons button::before {
   content: '✔';
@@ -571,18 +608,14 @@ body {
 }
 .form-dice .dice-button i {
   position: relative;
-  display: block;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   width: 2.4em;
   border-width: 0 .1rem 0 0;
   border-radius: .5em 0 0 .5em;
 }
 .form-dice .dice-button i::before {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: .4rem;
-  margin: auto;
-  text-align: center;
   font-size: 1.4rem;
   line-height: 1;
   font-family: "Material Symbols Outlined";
@@ -616,6 +649,9 @@ body {
   border: 0;
   background: none;
   font-size: 1.6rem;
+}
+body.rom #main-form > .help.button {
+  display: none;
 }
 
 /* // ラウンド
@@ -719,7 +755,7 @@ body {
 ---------------------------------------------------------------------------------------------------- */
 #memo {
   position: relative;
-  padding-bottom: 1.2em;
+  padding-bottom: 1.9em;
   overflow: auto;
   flex-shrink: 0;
 }
@@ -728,11 +764,13 @@ body {
 #memo ul#memo-list {
 }
 #memo ul#memo-list li {
+  border-bottom: .1rem solid var(--border-color-pale);
+}
+#memo ul#memo-list li > .headline {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   padding: .3em 0;
-  border-bottom: .1rem solid var(--border-color-pale);
 }
 [data-layout="row"] #memo {
   overflow: hidden;
@@ -743,16 +781,7 @@ body {
   width: auto;
   height: 100%;
   overflow: auto;
-}
-[data-layout="row"] #memo ul#memo-list li {
-  display: inline-block;
-  max-width: 8em;
-  margin-right: .3rem;
-  padding: .3em;
-  background-color: rgba(127,127,127,0.15);
-  border: .1rem solid var(--border-color-pale);
-  border-radius: .8em;
-  font-size: 90%;
+  padding-bottom: 1.9em;
 }
 
 /* // ユニットシート
@@ -798,7 +827,28 @@ body {
   animation-duration: 0.25s;
   animation-timing-function: ease-out;
 }
-.sheet {
+.sheet:has(.chat-palette-area) {
+  display: grid;
+  grid-template-rows: max-content 1fr;
+  grid-template-columns: 1fr;
+
+  .sheet-body {
+    grid-template-rows: max-content 1fr max-content;
+
+    .status-remocon-area {
+      display: grid;
+      grid-template-rows: max-content max-content 1fr max-content;
+      grid-template-columns: 1fr;
+      height: auto;
+      max-height: max(calc(100vh - 44rem), 18rem);
+
+      .status-remocon-list {
+        max-height: 100%;
+        overflow-y: auto;
+        grid-auto-rows: max-content;
+      }
+    }
+  }
 }
 @keyframes sheetrightfade {
   from { opacity: 0.5; left: 16em; right: -16em; }

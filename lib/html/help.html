@@ -58,6 +58,8 @@
     <tr><th>&lt;h4&gt;テキスト&lt;/h4&gt;</th><td class="logs"><h4>テキスト</h4></td><td>見出しレベル4</td></tr>
     <tr><th>&lt;h5&gt;テキスト&lt;/h5&gt;</th><td class="logs"><h5>テキスト</h5></td><td>見出しレベル5</td></tr>
     <tr><th>&lt;h6&gt;テキスト&lt;/h6&gt;</th><td class="logs"><h6>テキスト</h6></td><td>見出しレベル6</td></tr>
+    <tr><th>&lt;hr&gt;</th><td class="logs"><hr /></td><td>水平線</td></tr>
+    <tr><th>&lt;tip&gt;単語=&gt;説明&lt;/tip&gt;</th><td><span class="tooltip" onmouseover="tooltipHover(event)">単語<span class="tooltip-text">説明</span></span></td><td>予め設定されている以外のツールチップ</td></tr>
     <tr><th>|テキスト|テキスト|<br>|テキスト|テキスト|</th><td class="logs"><table><tr><td>テキスト<td>テキスト<tr><td>テキスト<td>テキスト</table></td><td>テーブル（表組み）</td></tr>
     <tr><th>・テキスト<br>・テキスト</th><td><ul><li>テキスト<li>テキスト</ul></td><td>リスト</td></tr>
     <tr><th>:アイコン名:</th><td>(任意のアイコン)</td><td>Google Fontsの<a href="https://fonts.google.com/icons" target="_blank">Material Symbols</a>のアイコンを表示する。アイコン名は全て半角小文字、スペースの代わりにアンダースコア(_)を用いる。</td></tr>
@@ -99,21 +101,28 @@
       　このさい、２つ目以降のステータス名の前に@は不要です。<br>
       例: <code>@HP:25/25 MP:10/10 防護:4</code>、<code>@HP-12 MP-12</code>
     </td></tr>
-    <tr><th>@new ステータス名:文字列  </th><td>ユニット、ステータスを新規に設定します。<br>既に同名のものがある場合は上書きされます。<br>例外的に、名前欄・ユニット欄に存在しない名前でも指定できます。<br>例: <code>大蜥蜴@new 頭部HP:30/30 胴体HP:40/40</code>、<code>ゴブリンの群れ@new ＡHP:16/16 ＢHP:16/16 ＣHP:16/16 防護:2</code></td></tr>
+    <tr><td colspan="2">
+      　ステータス変更時、<code>@HP-1d</code>といったようにダイスコードを指定してランダムに数値を増減させることができます。
+    </td></tr>
+    <tr><th>@memo:メモの内容</th><td>ユニットの「メモ」の内容を設定します。<br><code>@memo:</code>のみで送信するとメモを削除します。</td></tr>
+    <tr><th>@new ステータス名:文字列  </th><td rowspan="2">ユニット、ステータスを新規に設定します。<br>既に同名のものがある場合は上書きされます。<br>例外的に、名前欄・ユニット欄に存在しない名前でも指定できます。<br>例: <code>大蜥蜴@new 頭部HP:30/30 胴体HP:40/40</code>、<code>ゴブリンの群れ@new ＡHP:16/16 ＢHP:16/16 ＣHP:16/16 防護:2</code><br><code>memo:メモの内容</code>を併記すると、メモを同時に設定できます。<br><br>ステータス名ではなくキャラクターシートのURLを記述した場合、URL先から自動的にデータを取得してユニットを設定します。<br>（『ゆとシートⅡ』など、対応したシートのみ）</td></tr>
+    <tr><th>@new URL  </th></tr>
     <tr><th>@add ステータス名:文字列  </th><td>ステータスを追加で設定します。<br>既に同名のものがある場合は上書きされます。<br>例: <code>@add 使い魔MP:7/7</code>、</td></tr>
     <tr><th>@delete     </th><td>発言者と同名のユニットを削除する。</td></tr>
     <tr><th>@check          </th><td>ユニット一覧の自分の名前にチェック（✔）を入れる。<br>例: <code>@check 行動終了</code></td></tr>
     <tr><th>@uncheck         </th><td>ユニット一覧の自分の名前のチェック（✔）を外す。<br>例: <code>@uncheck まだやることあった</code></td></tr>
-    <tr><th>/ready       </th><td>「レディチェックを開始しました」の文言とともに、ユニットの✔を全て外す。</td></tr>
+    <tr><th>/ready       </th><td rowspan="2">「レディチェック（準備確認）」をおこなう。<br>メッセージを指定した場合、その文面とともにレディチェックをおこなう。<br>例： <code>/ready 割り込み行動のないひとはチェックしてください</code></td></tr>
+    <tr><th>/ready メッセージ</th></tr>
     <tr><th>/round+数値  </th><td>ラウンド数を「数値」進める。<br>ユニットの✔は全て外れる。</td></tr>
     <tr><th>/round-数値  </th><td>ラウンド数を「数値」戻す。<br>ユニットの✔は全て外れる。</td></tr>
     <tr><th>/round=数値  </th><td>ラウンド数を「数値」にする。<br>ユニットの✔は全て外れる。</td></tr>
     <tr><th>/roundreset  </th><td>ラウンド数を「0」にする。<br>ユニットの✔は全て外れる。</td></tr>
     <tr><th>/topic 文字列</th><td>トピックの内容を「文字列」で更新する。</td></tr>
     <tr><th>/memo 文字列 </th><td>「文字列」の内容のメモを追加する。</td></tr>
-    <tr><th>/bg 文字列 URL</th><td>「URL」の画像を背景に設定する。<br>「文字列」がタイトルに設定される。</td></tr>
+    <tr><th>/bg 文字列 URL</th><td rowspan="2">「URL」の画像を背景に設定する。<br>「文字列」がタイトルに設定される。<br>「mode=tiling」を指定すると、タイリングして表示される。<br>「/bg」以降の内容は順番は問わない。<br>（<code>/bg URL タイトル mode=tiling</code>などでもよい）</td></tr>
+    <tr><th>/bg mode=tiling 文字列 URL</th></tr>
     <tr><th>/bgreset</th><td>背景画像を初期状態に戻す。</td></tr>
-    <tr><th>/bgm 文字列 数値 URL</th><td>「URL」の音声をBGMに設定する。<br>「文字列」をタイトル、「数値」%の音量で設定される（省略時は100）。</td></tr>
+    <tr><th>/bgm 文字列 vol=数値 URL</th><td>「URL」の音声をBGMに設定する。<br>「文字列」をタイトル、「数値」%の音量で設定される（省略時は100）。<br>「/bgm」以降の内容は順番は問わない。<br>（<code>/bgm vol=100 URL タイトル</code>などでもよい）</td></tr>
     <tr><th>/bgmreset</th><td>BGMを無音状態に戻す。</td></tr>
     <tr><th>/insert URL</th><td>「URL」の画像を挿入</td></tr>
   </table>
@@ -147,6 +156,9 @@
       <tr><th><b style="color:#77bbee;">==</b><i>Num</i>    <td>Num と等しい
     </table>
     <p>
+      　また、<span style="color:#77bbee;"><i>Num</i></span>を <span style="color:#77bbee;">|</span> で区切って複数列記することで、多段階的な目標値を表現できます。
+    </p>
+    <p>
       例1：「6面ダイスを1つ振る」<br>
       　<span style="color:#ee7777;">1</span><b>D</b><span style="color:#eebb77;">6</span>
     </p>
@@ -155,15 +167,19 @@
       　<span style="color:#ee7777;">2</span><b>D</b><span style="color:#eebb77;">6</span><span style="color:#77ee77;">+12+1</span>
     </p>
     <p>
-      例3：「ワイバーンのブレスによる攻撃。2d+10だが抵抗されたので半減」<br>
+      例3：「基準値5で魔物知識判定、知名度／弱点値は7／11」<br>
+      　<span style="color:#ee7777;">2</span><b>D</b><span style="color:#eebb77;">6</span><span style="color:#77ee77;">+5</span><span style="color:#77bbee;">&gt;=7|11</span>
+    </p>
+    <p>
+      例4：「ワイバーンのブレスによる攻撃。2d+10だが抵抗されたので半減」<br>
       　<span style="color:#ee7777;">2</span><b>D</b><span style="color:#eebb77;">6</span><span style="color:#77ee77;">+10//</span>
     </p>
     <p>
-      例4：「すべての［部位：腕］が健在なヘカトンケイレスの《武器乱舞》のダメージ」<br>
+      例5：「すべての［部位：腕］が健在なヘカトンケイレスの《武器乱舞》のダメージ」<br>
       　<span style="color:#ee7777;">2</span><b>D</b><span style="color:#eebb77;">6</span><span style="color:#77ee77;">**6+5</span><br>
     </p>
     <p>
-      例5：「超越判定」<br>
+      例6：「超越判定」<br>
       　<span style="color:#ee7777;">2</span><b>D</b><span style="color:#eebb77;">6</span><span style="color:#77ee77;">+22</span><span style="color:#eebb77;">@10</span><br>
     </p>
   </details>
@@ -187,11 +203,36 @@
       　選ぶ回数（個数）の指定は省略できます。<br>
       　また、回数の指定が無い時に自動的に設定される回数と、指定できる最大の回数は、ランダム表により異なります。それぞれ、下記の表を参照してください。
     </p>
+    <h5>出目の補正</h5>
+    <p>　「xDy」を振るタイプのランダム表は、末尾に<code>+n</code>や<code>-n</code>と記述することで出目を補正できます（ n は補正値）。（例： <code>2$イベント表+1</code>，「イベント表」の出目に +1 の補正をつけたうえで 2 回振る）</p>
     <table>
       <tr><th>表の名前</th><th>省略</th><th>最大</th><th>説明</th></tr>
       <TMPL_LOOP RandomTable><tr><th><TMPL_VAR COMMAND></th><td class="right" style="white-space:nowrap"><TMPL_VAR DEF>回</td><td class="right" style="white-space:nowrap"><TMPL_VAR MAX>回</td><td><TMPL_VAR HELP></td></tr></TMPL_LOOP>
     </table>
-    <p>　こちらの表は、山札機能（下記）においても使用します。</p>
+    <p>　こちらの表は、山札機能（後述）においても使用します。</p>
+    <details>
+      <summary>独自ランダム表</summary>
+      <h5>独自ランダム表の定義</h5>
+      <p>　そのルーム専用のランダム表を定義することができます。</p>
+      <p>　<code>/random-table</code> の後に（スペースを挟んでから）“表の名前”を記述したうえで改行し、以降１行ごとに表の内容を記述します。</p>
+      <p>　たとえば以下の例では、「フルーツ」という名前で、「apple」「orange」「banana」の三通りの結果を得られる表を定義します。</p>
+      <pre class="code">/random-table フルーツ
+apple
+orange
+banana</pre>
+      <p>　<code>/random-table</code> の次の行にダイスロールを記述し、その次以降の各行の先頭に出目の範囲と内容を記述すると、ダイスロール式の表を定義できます。</p>
+      <p>　出目の範囲は、始点もしくは終点を省略できます。</p>
+      <p>　出目の範囲と内容のあいだには、スペースが必要です。</p>
+      <p>　たとえば以下の例では、 2d6 ロールのうえで、出目が 3 以下なら「apple」、出目が 4 から 7 なら「orange」、出目が 8 以上なら「banana」の結果が得られます。</p>
+      <pre class="code">/random-table フルーツ
+2d6
+-3 apple
+4-7 orange
+8- banana</pre>
+      <h5>独自ランダム表の削除</h5>
+      <p>　定義した独自ランダム表の削除は、以下のように <code>/remove-random-table</code> の後に“表の名前”を記述することでおこなえます。</p>
+      <pre class="code">/remove-random-table フルーツ</pre>
+    </details>
   </details>
   <details>
     <summary>山札機能</summary>
@@ -213,7 +254,7 @@
       <b>R</b><span style="color:#ee7777;">威力</span><span style="color:#eebb77;">[C値]</span><span style="color:#77ee77;">+修正値</span><span style="color:#ee77bb;">!必殺</span><span style="color:#bb77ee;">$出目</span><span style="color:#77aaee;">k首切</span><span style="color:#cc77ee;">:繰返し回数</span>
     </p>
     <p>
-      <span style="color:#77ee77;">+修正値</span>・<span style="color:#eebb77;">@C値</span>・<span style="color:#ee77bb;">!必殺</span>・<span style="color:#bb77ee;">$出目</span>・<span style="color:#77aaee;">k首切り</span>・<span style="color:#cc77ee;">:繰返し回数</span>は省略できます。<br>
+      <span style="color:#77ee77;">+修正値</span>・<span style="color:#eebb77;">@C値</span>・<span style="color:#ee77bb;">!必殺</span>・<span style="color:#bb77ee;">$出目</span>・<span style="color:#77aaee;">k首切り</span>・<span style="color:#cc77ee;">:繰返し回数</span>は省略できます。C値を省略した場合、「C値：なし」のように振る舞います。<br>
       　修正値の末尾に「<span style="color:#77ee77;">//</span>」をつけると半減した結果になります。半減した上でさらに修正がある場合、「<span style="color:#77ee77;">//</span>」の後ろにさらに付け足します（「<span style="color:#77ee77;">//+1</span>」など）。<br>
       　!必殺、k首切は、効果による出目ないし威力の上昇値を記入します。<br>
       　$出目は、特定効果による出目の固定値や修正値（クリティカルレイ等）を記入します。<br>
@@ -257,6 +298,11 @@
         <th>出目修正</th>
         <th> <b>$+</b><i>Num</i> <br> <b>出目+</b><i>Num</i> </th>
         <td>Num=出目修正値。<br>出目にNumを加える（クリレイ効果）。<br>クリティカル時、最初の1回のみで効果は消える。</td>
+      </tr>
+      <tr>
+        <th>出目修正<br>［魔女の火］</th>
+        <th> <b>$~+</b><i>Num</i> <br> <b>出目~+</b><i>Num</i> </th>
+        <td>Num=出目修正値。<br>出目3～10にNumを加える。<br>（バーバヤガーの種族特徴［魔女の火］）<br>クリティカル時、最初の1回のみで効果は消える。</td>
       </tr>
       <tr>
         <th>首切効果</th>

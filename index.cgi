@@ -9,10 +9,11 @@ use strict;
 use utf8;
 use open ":utf8";
 use open ":std";
+use CGI;
 use CGI::Carp qw(fatalsToBrowser);
 
 ### バージョン #######################################################################################
-our $ver = "1.01.003";
+our $ver = "1.02.006";
 
 ### 設定読込 #########################################################################################
 require './config.cgi';
@@ -129,12 +130,29 @@ sub tagConvert {
   my @linkURL;
   $comm =~ s{(https?://[^\s\<]+)}{ push(@linkURL, $1); "<!a#".scalar(@linkURL).">" }ge;
 
+  #
+  $comm =~ s#&lt;br&gt;\n?#<br>#gi;
+  $comm =~ s#&lt;hr&gt;\n?#<hr>#gi;
+  $comm =~ s/(^・(?!・).+(\n|$))+/&listCreate($&)/egim;
+  $comm =~ s/(?:^(?:\|(?:.*?))+\|[hc]?(?:\n|$))+/&tableCreate($&)/egim;
+  $comm =~ s#&lt;ruby&gt;(.+?)&lt;rt&gt;(.*?)&lt;/ruby&gt;#<ruby>$1<rt>$2</ruby>#gi;
+  $comm =~ s#<ruby>(.+?)(?:<rp>\(</rp>)?<rt>(.*?)(?:<rp>\)</rp>)?</ruby>#<ruby>$1<rt>$2</ruby>#gi;
+  $comm =~ s#([♠♤♥♡♣♧♦♢]+)#<span class="trump">$1</span>#gi;
+  $comm =~ s#:([a-z0-9_]+?):#<span class="material-symbols-outlined"><i>:</i>$1<i>:</i></span>#g;
+
   # ユーザー定義
   foreach my $hash (@set::replace_regex){
     foreach my $key (keys %{$hash}){
       my $value = ${$hash}{$key};
          $value =~ s/"/\\"/g;
-      $key =~ s/&lt;/</; $key =~ s/&gt;/>/;
+      if ($key =~ /[<>]/) {
+        $key =~ s/</&lt;/g;
+        $key =~ s/>/&gt;/g;
+      } else {
+        $key =~ s/&lt;/</g;
+        $key =~ s/&gt;/>/g;
+      }
+      $key =~ s/&lt;/</g; $key =~ s/&gt;/>/g;
       $comm =~ s/${key}/"\"${value}\""/gee;
     }
   }
@@ -142,26 +160,21 @@ sub tagConvert {
     my $qkey = quotemeta $key;
     $comm =~ s/${qkey}/$set::replace_rule{$key}/g;
   }
-  
-  $comm =~ s#&lt;hr&gt;\n?#<hr>#gi;
-  $comm =~ s#&lt;ruby&gt;(.+?)&lt;rt&gt;(.*?)&lt;/ruby&gt;#<ruby>$1<rp>(</rp><rt>$2</rt><rp>)</rp></ruby>#gi;
-  $comm =~ s#([♠♤♥♡♣♧♦♢]+)#<span class="trump">$1</span>#gi;
-  $comm =~ s#:([a-z0-9_]+?):#<span class="material-symbols-outlined"><i>:</i>$1<i>:</i></span>#g;
 
-  $comm =~ s/(^・(?!・).+(\n|$))+/&listCreate($&)/egim;
-  $comm =~ s/(?:^(?:\|(?:.*?))+\|[hc]?(?:\n|$))+/&tableCreate($&)/egim;
+  #
+  $comm =~ s#<ruby>(.+?)(?:<rp>\(</rp>)?<rt>(.*?)(?:<rp>\)</rp>)?</ruby>#<ruby><rp>｜</rp>$1<rp>《</rp><rt>$2<rp>》</rp></ruby>#gi;
 
-  1 while $comm =~ s#&lt;mi&gt;(.+?)&lt;/mi&gt;#<i class="serif">$1</i>#gis;
-  1 while $comm =~ s#&lt;hide&gt;(.+?)&lt;/hide&gt;#<span class="hide">$1</span>#gis;
-  1 while $comm =~ s#&lt;em&gt;(.+?)&lt;/em&gt;#<em>$1</em>#gis;
   1 while $comm =~ s#&lt;b&gt;(.*?)&lt;/b&gt;#<b>$1</b>#gis;
   1 while $comm =~ s#&lt;i&gt;(.*?)&lt;/i&gt;#<i>$1</i>#gis;
   1 while $comm =~ s#&lt;s&gt;(.*?)&lt;/s&gt;#<s>$1</s>#gis;
   1 while $comm =~ s#&lt;u&gt;(.*?)&lt;/u&gt;#<span class="under">$1</span>#gis;
   1 while $comm =~ s#&lt;o&gt;(.*?)&lt;/o&gt;#<span class="over">$1</span>#gis;
-  1 while $comm =~ s#&lt;c:([0-9a-zA-Z\#]*?)&gt;(.*?)&lt;/c&gt;#<span style="color:$1">$2</span>#gis;
+  1 while $comm =~ s#&lt;em&gt;(.+?)&lt;/em&gt;#<em>$1</em>#gis;
+  1 while $comm =~ s#&lt;mi&gt;(.+?)&lt;/mi&gt;#<i class="serif">$1</i>#gis;
+  1 while $comm =~ s#&lt;hide&gt;(.+?)&lt;/hide&gt;#<span class="hide">$1</span>#gis;
   1 while $comm =~ s#&lt;big&gt;(.*?)&lt;/big&gt;#<span class="large">$1</span>#gis;
   1 while $comm =~ s#&lt;small&gt;(.*?)&lt;/small&gt;#<span class="small">$1</span>#gis;
+  1 while $comm =~ s#&lt;c:([0-9a-zA-Z\#]*?)&gt;(.*?)&lt;/c&gt;#<span style="color:$1">$2</span>#gis;
   
   1 while $comm =~ s#&lt;left&gt;(.*?)&lt;/left&gt;\n?#<div class="left">$1</div>#gis;
   1 while $comm =~ s#&lt;center&gt;(.*?)&lt;/center&gt;\n?#<div class="center">$1</div>#gis;
@@ -169,8 +182,12 @@ sub tagConvert {
   
   1 while $comm =~ s#&lt;h([1-6])&gt;(.*?)&lt;/h\1&gt;\n?#<h$1>$2</h$1>#gis;
   
+  1 while $comm =~ s#&lt;tip&gt;(.*?)=&gt;(.*?)&lt;\/tip&gt;#$1#gis;
+  
   # 自動リンク・後処理
   $comm =~ s{<!a#([0-9]+)>}{'<a href="'.$linkURL[$1-1].'" target="_blank">'.$linkURL[$1-1].'</a>'}ge;
+
+  $comm =~ s#(</ul>)\n#$1#;
   
   $comm =~ s#\n#<br>#gi;
   return $comm;
@@ -190,8 +207,9 @@ sub tagConvertUnit {
 sub listCreate {
   my $text = shift;
   $text =~ s/^・/<li>/gm;
+  my $needLinefeed = $text =~ /\n$/;
   $text =~ s/\n//g;
-  return "<ul>$text</ul>";
+  return "<ul>$text</ul>" . ($needLinefeed ? "\n" : '');
 }
 #テーブル
 sub tableCreate {
@@ -208,7 +226,7 @@ sub tableCreate {
   my $row_num = 0;
   foreach my $row (@data){
     next if !@{$row};
-    $output .= "<tr data-test=@{$row}>";
+    $output .= "<tr>";
     my $col_num = 0;
     my $colspan = 1;
     foreach my $col (@{$row}){
@@ -266,6 +284,14 @@ sub tableHeaderCreate {
   return $output;
 }
 
+## 山括弧エスケープ
+sub escapeBracket {
+  my $text = shift;
+  $text =~ s/</&lt;/g;
+  $text =~ s/>/&gt;/g;
+  return $text;
+}
+
 ## タグ削除
 sub tagDelete {
   my $text = $_[0];
@@ -274,6 +300,112 @@ sub tagDelete {
   $text =~ s/<.+?>//g;
   $text =~ s/"/&quot;/g;
   return $text;
+}
+
+# URL変換
+sub resolveCloudAssetUrl {
+  my $url = shift;
+  $url = resolveGoogleDriveAssetUrl($url);
+  $url = resolveDropboxAssetUrl($url);
+  return $url;
+}
+# Google
+sub resolveGoogleDriveAssetUrl {
+  my $url = shift;
+
+  if ($url =~ /^https?:\/\/drive\.google\.com\/file\/d\/(.+)\/view\?usp=(?:sharing|(?:share|drive)_link)$/) {
+    return 'https://lh3.googleusercontent.com/d/' . $1;
+    #return 'https://drive.google.com/uc?id=' . $1;
+  }
+
+  return $url;
+}
+# Dropbox
+sub resolveDropboxAssetUrl {
+  my $url = shift;
+
+  if ($url =~ /^https?:\/\/www\.dropbox\.com\/.+[?&]dl=0$/) {
+    $url =~ s/dl=0$/dl=1/;
+    return $url;
+  }
+
+  return $url;
+}
+
+## ダイスロール成否強調
+sub stylizeSuccessAndFailure {
+  my @array = split('／', shift);
+  foreach (@array){
+    if($_ eq '成功'){ $_ = "<strong>成功</strong>" }
+    elsif($_ =~ /^(自動)?失敗$/){ $_ = "<strong class='fail'>$&</strong>" }
+  }
+  return join('／', @array);
+}
+
+## ランダム表整形
+sub reformatRandomTable {
+  my %sourceTable = %{ shift; };
+  my %destinationTable = ();
+  my @destinationRows = ();
+
+  if ($sourceTable{'diceCode'}) {
+    my @sourceRows = @{ $sourceTable{'rows'} };
+    my $lastBody = undef;
+    foreach my $sourceRow (@sourceRows) {
+      if ($sourceRow =~ s/^(\d+)://) {
+        my $dice = $1;
+        my $body = $sourceRow;
+        if ($body eq $lastBody) {
+          my $rowCount = @destinationRows;
+          my $lastRowIndex = $rowCount - 1;
+          my %lastRow = %{ @destinationRows[$lastRowIndex] };
+          $lastRow{'range'}{'end'} = $dice;
+        } else {
+          $lastBody = $body;
+          push(@destinationRows, { 'range' => { 'begin' => $dice, 'end' => $dice }, 'body' => $sourceRow });
+        }
+      }
+    }
+
+    $destinationTable{'diceCode'} = $sourceTable{'diceCode'};
+  } else {
+    my @sourceRows = @{ $sourceTable{'rows'} };
+    foreach my $sourceRow (@sourceRows) {
+      push(@destinationRows, {'body' => $sourceRow});
+    }
+  }
+
+  $destinationTable{'rows'} = \@destinationRows;
+  return \%destinationTable;
+}
+sub makeRandomTableHtml {
+  my %table = %{ shift; };
+
+  my $html = '<table class="random-table">';
+
+  if ($table{'diceCode'}) {
+    $html .= '<thead><tr><th>出目</th><th>内容</th></tr></thead>';
+  }
+
+  $html .= '<tbody>';
+
+  my @rows = @{ $table{'rows'} };
+  foreach my $rowReference (@rows) {
+    $html .= '<tr>';
+    my %row = %{ $rowReference };
+    if ($row{'range'}) {
+      my %range = %{ $row{'range'} };
+      my $begin = $range{'begin'};
+      my $end = $range{'end'};
+      $html .= '<th>' . ($begin eq $end ? $begin : "$begin - $end") . '</th>';
+    }
+    $html .= '<td>' . CGI::escapeHTML($row{'body'}) . '</td>';
+    $html .= '</tr>';
+  }
+
+  $html .= '</tbody></table>';
+
+  return $html;
 }
 
 ##
@@ -321,8 +453,9 @@ sub message {
 ## エラー
 sub error {
   if($in{'mode'} =~ /write|read|reset|change/){
+    my $message = $_[0] =~ s/\n/\\n/gr;
     print "Content-type:application/json; charset=UTF-8\n\n";
-    print '{"status":"error","text":"'.$_[0].'"}';
+    print '{"status":"error","text":"'.$message.'"}';
   }
   else {
     print "Content-type:text/plain; charset=UTF-8\n\n";

@@ -154,7 +154,7 @@ foreach my $key (sort keys %set::random_table){
   push(@random_table, {
     'COMMAND'  => $key,
     'DEF' => $set::random_table{$key}{'def'} || 1,
-    'MAX' => $set::random_table{$key}{'max'} || 10,
+    'MAX' => $set::random_table{$key}{'max'} || 20,
     'HELP' => $set::random_table{$key}{'help'},
   });
 }
@@ -163,11 +163,13 @@ $ROOM->param(RandomTable => \@random_table);
 my @bg_list;
 foreach (@set::bg_preset){
   next if !$_ || !@$_[0];
+  my $mode = @$_[3] || '';
   if($set::bg_thum_on){
     my $src = @$_[2] || @$_[0];
-    push(@bg_list, { 'URL' => @$_[0], 'TITLE' => @$_[1], 'VIEW' => "<img loading=\"lazy\" src=\"${src}\"><div class=\"title\">@$_[1]</div>" });
+    $src = resolveCloudAssetUrl($src);
+    push(@bg_list, { 'URL' => @$_[0], 'MODE' => $mode, 'TITLE' => @$_[1], 'VIEW' => "<img loading=\"lazy\" src=\"${src}\"><div class=\"title\">@$_[1]</div>" });
   }
-  else { push(@bg_list, { 'URL' => @$_[0], 'TITLE' => @$_[1], 'VIEW' => @$_[1] }); }
+  else { push(@bg_list, { 'URL' => @$_[0], 'MODE' => $mode, 'TITLE' => @$_[1], 'VIEW' => @$_[1] }); }
 }
 $ROOM->param(bgPreset => \@bg_list);
 if($set::bg_thum_on){ $ROOM->param(bgThumOn => $set::bg_thum_on); }
@@ -185,11 +187,26 @@ if($set::src_url_limit){
 $ROOM->param(srcURL => \@src_url);
 
 $ROOM->param(customCSS => $set::custom_css);
+$ROOM->param(customCSSVersion => (stat $set::custom_css)[9]) if $set::custom_css ne '';
 
 $ROOM->param(userRoomFlag => exists($set::rooms{$id}) ? 0 : 1);
 
-$ROOM->param(replaceRule => decode('utf-8', encode_json( \%set::replace_rule )) );
-$ROOM->param(replaceRegex => decode('utf-8', encode_json( \@set::replace_regex )) );
+$ROOM->param(replaceRule => decode('utf-8', encode_json \%set::replace_rule ) );
+$ROOM->param(replaceRegex => decode('utf-8', encode_json \@set::replace_regex ) );
+
+my @gameTooltips = $games{$game}{tooltips} ? @{$games{$game}{tooltips}} : ();
+if ($#gameTooltips >= 0) {
+  foreach (@gameTooltips) {
+    my %h = %{$_};
+    for my $k (keys %h) {
+      my $v = $h{$k};
+      $set::tooltips{$k} = $v;
+    }
+  }
+}
+$ROOM->param(tooltips => decode('utf-8', encode_json \%set::tooltips) );
+
+$ROOM->param(base64Mode => $set::base64mode );
 
 ###################
 ### 出力

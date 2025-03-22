@@ -16,17 +16,17 @@ sub diceCheck {
   $comm =~ s/&gt;/>/;
   $comm =~ s/&lt;/</;
   $comm =~ s/<br>/ /;
-  $comm =~ tr/ａ-ｚＡ-Ｚ０-９＋－＊／＾＠＄＃（）＜＞、＝！：/a-zA-Z0-9\+\-\*\/\^@\$#\(\)<>,=!:/;
-  if   ($comm =~ /^[0-9\+\-\*\/()]*[0-9]+\)?D\(?([0-9\+\-\*\/@<>:=]|\s|$)/i){ return diceRoll($comm), 'dice'; }
+  $comm =~ tr/ａ-ｚＡ-Ｚ０-９＋－＊／＾＠＄＃（）＜＞、＝！：｜/a-zA-Z0-9\+\-\*\/\^@\$#\(\)<>,=!:\|/;
+  if   ($comm =~ /^[0-9\+\-\*\/()]*[0-9]+\)?D\(?([0-9\+\-\*\/@<>:=|]|\s|$)/i){ return diceRoll($comm), 'dice'; }
   elsif($comm =~ /^[0-9]*\@/){ return shuffleRoll($comm); }
   elsif($comm =~ /^[0-9]*\$/){ return  choiceRoll($comm); }
   elsif($comm =~ /^[0-9]*\#/){ return drawDeck($comm), 'deck'; }
   elsif($comm =~ /^set\#/   ){ return setDeck($comm), 'deck'; }
   # 四則演算
   elsif($comm =~ /^
-    ( \(? \-? [0-9]+ [\+\-\/*\^]
-      [0-9\+\-\/*\^()]*
-      [0-9] \)? )
+    ( \(? \-? [0-9.]+ [\+\-\/*\^]
+      [0-9.\+\-\/*\^()]*
+      [0-9.] \)? )
     [=＝](?:\s|$)
     /ix){
     my $formula = $1;
@@ -69,7 +69,7 @@ sub diceRoll {
       [0-9\+\-\*\/()D@]*?
     )
     (?:(\/\/|\*\*) ([0-9]*) ([+-][0-9()][0-9\+\-\*()]*)? )?
-    (?:(>=?|<=?|==) ([0-9\+\-\*()]*) )?
+    (?:(>=?|<=?|==) ([0-9\+\-\*()|]*) )?
     =?
     (?:\:([0-9]+))?
     (?:\s|$)
@@ -78,8 +78,8 @@ sub diceRoll {
   }
   
   my $base      = $1;
-  my $half_type = $2;
-  my $half_num  = $3;
+  my $halfType  = $2;
+  my $halfNum   = $3;
   my $add       = $4;
   my $rel       = $5;
   my $target    = $6;
@@ -92,18 +92,19 @@ sub diceRoll {
     if($add eq ''){ return ''; }
   }
   if($target){
-    $target = parenthesisCalc($target);
-    if($target eq ''){ return ''; }
+    for my $x (split(/\|/, $target)) {
+      return '' if $x eq '';
+    }
   }
   
-  $repeat = ($repeat > 10) ? 10 : (!$repeat) ? 1 : $repeat;
+  $repeat = ($repeat > 20) ? 20 : (!$repeat) ? 1 : $repeat;
   my @result;
   foreach my $i (1 .. $repeat){
     push(@result,
       diceCalc(
         $base      ,
-        $half_type ,
-        $half_num  ,
+        $halfType ,
+        $halfNum  ,
         $add       ,
         $rel       ,
         $target    ,
@@ -115,11 +116,11 @@ sub diceRoll {
 
 sub diceCalc {
   my $base      = shift;
-  my $half_type = shift;
-  my $half_num  = shift;
+  my $halfType  = shift;
+  my $halfNum   = shift;
   my $add       = shift;
   my $rel       = shift;
-  my $target    = shift;
+  my $targets   = shift;
   
   my $total = 0;
   my @code;
@@ -132,6 +133,18 @@ sub diceCalc {
     $base =~ s/<dice>/ $num\[$text\] /;
   }
   $base =~ s/[\.\+\-\*\/\s]+$//gi; # 末尾の演算子は消す
+
+  # ファンブル／自動失敗チェック
+  my $fumble;
+  if( #SW2：2D6＆大なり記号あり＆1ゾロ
+    ($::in{'game'} eq 'sw2') &&
+    $#code == 0 &&
+    $code[0] =~ /^2D6$/i &&
+    $rel =~ /^>=?$/ &&
+    $base =~ /\Q2[1,1...]\E/
+  ) {
+    $fumble = '自動失敗';
+  }
   
   ## 基本合計値計算
   my $result = $base;
@@ -140,9 +153,9 @@ sub diceCalc {
   my $total = calc($base);
   
   ## 半減,倍化処理
-  if(!$half_num){ $half_num = 2 }
-  if($half_type =~ /^\/\//){ $result = "{ $result = $total } /$half_num "; $total = ceil($total / $half_num); }
-  elsif($half_type =~ /^\*\*/){ $result = "{ $result = $total } *$half_num "; $total = $total * $half_num; }
+  if(!$halfNum){ $halfNum = 2 }
+  if   ($halfType =~ /^\/\//){ $result = "{ $result = $total } /$halfNum "; $total = ceil($total / $halfNum); }
+  elsif($halfType =~ /^\*\*/){ $result = "{ $result = $total } *$halfNum "; $total = $total * $halfNum; }
   ## 半減後追加
   $result .= $add;
   $total += calc($add);
@@ -154,18 +167,33 @@ sub diceCalc {
   
   my $code = join('+',@code);
   
-  if($rel){
-    if(
-      ($rel eq '>'  && $total >  $target) ||
-      ($rel eq '>=' && $total >= $target) ||
-      ($rel eq '<'  && $total <  $target) ||
-      ($rel eq '<=' && $total <= $target) ||
-      ($rel eq '==' && $total == $target)
-    ){
-      $result .= ' → 成功';
+  ## ファンブル処理
+  if($fumble){
+    $result .= ' → '.$fumble;
+  }
+  ## 目標値成否
+  elsif($rel && $targets ne '' && $targets ne '|'){
+    $result .= ' → ';
+    $code .= $rel;
+    for my $target (split(/\|/, $targets)) {
+      $target = parenthesisCalc($target);
+      return '' if $target eq '';
+      if ($result =~ /(成功|失敗)$/) {
+        $result .= '／';
+        $code .= '|';
+      }
+      if (
+          ($rel eq '>'  && $total >  $target) ||
+          ($rel eq '>=' && $total >= $target) ||
+          ($rel eq '<'  && $total <  $target) ||
+          ($rel eq '<=' && $total <= $target) ||
+          ($rel eq '==' && $total == $target)
+      ) {
+        $result .= '成功';
+      }
+      else {$result .= '失敗';}
+      $code .= $target;
     }
-    else { $result .= ' → 失敗'; }
-    $code .= $rel.$target;
   }
   
   return $code .' → '. $result;
@@ -180,8 +208,8 @@ sub dice {
   elsif($faces > 1000){ return ("${rolls}D${faces}", '', 'ダイスの面数は1000が最大です'); }
   elsif($crit ne '' && $crit  <= $rolls){ return ("${rolls}D${faces}\@${crit}", '∞'); }
   
-  my $num_total;
-  my @full_results;
+  my $numTotal;
+  my @fullResults;
   foreach (my $i = 0; $i < 100; $i++) {
     my $num;
     my @results;
@@ -190,34 +218,37 @@ sub dice {
       push(@results, $number);
     } 
     $num += $_ foreach @results;
-    $num_total += $num;
+    $numTotal += $num;
     
     my $result = join(',', @results);
     if($rolls && $::in{'game'} =~ /sw2/i){
       $result .= ($rolls*$faces == $num) ? '!!' : ($rolls == $num) ? '...' : '';
     }
     
-    push( @full_results, $result);
+    push(@fullResults, $result);
     
     last if !$crit;
     last if $num < $crit;
   }
-  my $text = join('][', @full_results);
   
-  return "${rolls}D${faces}".($crit?"\@${crit}":''), $num_total, $text;
+  return
+    "${rolls}D${faces}".($crit?"\@${crit}":''),
+    $numTotal,
+    join('][', @fullResults);
 }
 
 sub shuffleRoll {
   my $comm = shift;
   if($comm !~ s/^
-    ([0-9]+)? @ (.*?)
+    ([0-9]+)? @ (.*?) ([-+][-+*\/()0-9]+)?
     (?:\s|$)
   //ix){
     return;
   }
-  my $rolls = $1; my $rolls_raw = $rolls;
+  my $rolls = my $rollsRaw = $1;
   my $faces = $2;
-  my $max = 10;
+  my $modifier = $3;
+  my $max = 20;
   my $def = 1;
   if($set::random_table{$faces}){
     $max = $set::random_table{$faces}{'max'} || $max;
@@ -226,12 +257,29 @@ sub shuffleRoll {
   $rolls = $rolls > $max ? $max
          : !$rolls ? $def
          : $rolls;
-  if($set::random_table{$faces}) {
-    open(my $FH, '<', "${set::rtable_dir}/$set::random_table{$faces}{'data'}") or error($set::random_table{$2}.'が開けません');
-    my @list = <$FH>;
-    close($FH);
-    if($list[0] =~ /[0-9]+D[0-9]+/i){
-      return randomDiceTableRoll($rolls,$faces,@list), 'choice:table';
+
+  my $roomRandomTableReference = loadRoomRandomTable($faces);
+
+  if(defined($roomRandomTableReference) || $set::random_table{$faces} // $set::random_table{$faces . $modifier}) {
+    if (!defined($roomRandomTableReference) && !$set::random_table{$faces}) {
+      # 補正値っぽい部分まで含めて表の名前だったっぽい:
+      $faces .= $modifier;
+      $modifier = undef;
+    }
+
+    my @list;
+
+    if (defined($roomRandomTableReference)) {
+      my %roomRandomTable = &loadRoomRandomTable($faces);
+      @list = @{ $roomRandomTable{rows} };
+    } else {
+      open(my $FH, '<', "${set::rtable_dir}/$set::random_table{$faces}{'data'}") or error($set::random_table{$2} . 'が開けません');
+      @list = <$FH>;
+      close($FH);
+    }
+
+    if($list[0] =~ /^[0-9]+D[0-9]+$/i){
+      return randomDiceTableRoll($rolls,$faces,$modifier,@list), 'choice:table';
     }
     else {
       @list = shuffle(@list);
@@ -248,7 +296,7 @@ sub shuffleRoll {
     $faces =~ s/>/&gt;/;
     $faces =~ s/</&lt;/;
     my @list = split(/[,、]/, $faces);
-    return "" if (@list <= 1 || (!$rolls_raw)); #誤爆防止
+    return "" if (@list <= 1 || (!$rollsRaw)); #誤爆防止
     @list = shuffle(@list);
     my @choice = splice(@list, 0, $rolls);
     return '<b>【✔:'.join(',', @choice).'】</b> <s>［×:'.join(',', @list).'］</s>', 'choice';
@@ -259,14 +307,15 @@ sub shuffleRoll {
 sub choiceRoll {
   my $comm = shift;
   if($comm !~ /^
-    ([0-9]+)? \$ (.*?)
+    ([0-9]+)? \$ (.*?) ([-+][-+*\/()0-9]+)?
     (?:\s|$)
   /ix){
     return "";
   }
-  my $rolls = $1; my $rolls_raw = $rolls;
+  my $rolls = my $rollsRaw = $1;
   my $faces = $2;
-  my $max = 10;
+  my $modifier = $3;
+  my $max = 20;
   my $def = 1;
   if($set::random_table{$faces}){
     $max = $set::random_table{$faces}{'max'} || $max;
@@ -275,12 +324,29 @@ sub choiceRoll {
   $rolls = $rolls > $max ? $max
          : !$rolls ? $def
          : $rolls;
-  if($set::random_table{$faces}) {
-    open(my $FH, '<', "${set::rtable_dir}/$set::random_table{$faces}{'data'}") or error($set::random_table{$faces}.'が開けません');
-    my @list = <$FH>;
-    close($FH);
-    if($list[0] =~ /^[0-9]+D[0-9]+$/i){
-      return randomDiceTableRoll($rolls,$faces,@list), 'choice:table';
+
+  my $roomRandomTableReference = loadRoomRandomTable($faces);
+
+  if(defined($roomRandomTableReference) || $set::random_table{$faces} // $set::random_table{$faces . $modifier}) {
+    if (!defined($roomRandomTableReference) && !$set::random_table{$faces}) {
+      # 補正値っぽい部分まで含めて表の名前だったっぽい:
+      $faces .= $modifier;
+      $modifier = undef;
+    }
+
+    my @list;
+
+    if (defined($roomRandomTableReference)) {
+      my %roomRandomTable = &loadRoomRandomTable($faces);
+      @list = @{ $roomRandomTable{rows} };
+    } else {
+      open(my $FH, '<', "${set::rtable_dir}/$set::random_table{$faces}{'data'}") or error($set::random_table{$faces} . 'が開けません');
+      @list = <$FH>;
+      close($FH);
+    }
+
+    if($list[0] =~ /^[0-9]+D[0-9]+(?:\s+\d+){0,2}$/i){
+      return randomDiceTableRoll($rolls,$faces,$modifier,@list), 'choice:table';
     }
     else {
       my @choice;
@@ -298,7 +364,7 @@ sub choiceRoll {
     $faces =~ s/>/&gt;/;
     $faces =~ s/</&lt;/;
     my @list = split(/[,、]/, $faces);
-    return "" if (@list <= 1 || (!$rolls_raw)); #誤爆防止
+    return "" if (@list <= 1 || (!$rollsRaw)); #誤爆防止
 
     my @results;
     foreach (1 .. $rolls){
@@ -312,17 +378,35 @@ sub choiceRoll {
 sub randomDiceTableRoll {
   my $repeat = shift;
   my $name = shift;
+  my $modifier = shift;
   my $code = shift;
-  my @list = @_;
   chomp $code;
-  foreach (@list){ chomp $_; $_=~ s/\\n/<br>/g; }
+  my ($rolls, $faces) = split(/D/i, $code);
+  my %data;
+  my $min;
+  my $max;
+  foreach (@_){
+    chomp $_;
+    $_=~ s/\\n/<br>/g;
+    if($_ =~ /^(-?[0-9]+):/){
+      $data{$1} = $_;
+      $min = $1 if !defined($min) || $1 < $min;
+      $max = $1 if !defined($max) || $1 > $max;
+    }
+  }
   my $results;
   foreach(1 .. $repeat){
-    ($code, my $value, my $text) = dice(split(/D/i, $code));
-    $text =~ s/[\!\.]//g;
+    ($code, my $rolledTotal, my $rolledNums) = dice($rolls, $faces);
+    my $finalValue = defined($modifier) ? calc("$rolledTotal$modifier") : $rolledTotal;
+    $finalValue = $min if $finalValue < $min;
+    $finalValue = $max if $finalValue > $max;
+    $rolledNums =~ s/[\!\.]//g;
     $results .= '<br>' if $results;
-    foreach(@list){
-      if($_ =~ s/^$value:(.*?)$/$1/){ $results .= "＠$name → $code → $value\[$text\] : \[$1\]"; last; }
+    if(exists $data{$finalValue}){
+      $results .= "＠$name → $code" . (defined($modifier) ? "($modifier)" : '') . " → $rolledTotal\[$rolledNums\]$modifier : \[$data{$finalValue}\]";
+    }
+    else {
+      error "合致する行がありませんでした（出目: $finalValue）";
     }
   }
   return $results;
@@ -395,6 +479,41 @@ sub drawDeck {
   truncate($FH, tell($FH));
   close($FH);
   return "${draw}＃$+{deckName} → [".join('][',@draws)."]".($finish ? '<br>山札がなくなりました。':'');
+}
+
+sub loadRoomRandomTable {
+  my $tableName = shift;
+
+  my %tables = &loadRandomTables();
+
+  if (!exists($tables{$tableName})) {
+    return undef;
+  }
+
+  my %table = %{ $tables{$tableName} };
+
+  if ($table{'diceCode'}) {
+    my $command = $table{'diceCode'}{'command'};
+    my @rows = @{ $table{'rows'} };
+    unshift(@rows, $command);
+    delete $table{'diceCode'};
+    $table{'rows'} = \@rows;
+  }
+
+  return %table;
+}
+
+sub loadRandomTables {
+  sysopen(my $FH, "./room/$::in{'room'}/room.dat", O_RDONLY) or error "room.datが開けません";
+  my %data = %{ decode_json(encode('utf8', (join '', <$FH>))) };
+  close($FH);
+
+  if (!$data{randomTables}) {
+    return {};
+  }
+
+  my %tables = %{ $data{randomTables} };
+  return %tables;
 }
 
 1;

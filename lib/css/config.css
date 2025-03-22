@@ -150,12 +150,16 @@
   .chat-palette b {
     color: #ee9999;
   }
-  .chat-palette i {
+  .chat-palette i.dice-param {
+    color: #cc99ee;
+    font-style: normal;
+  }
+  .chat-palette i.palette-param {
     color: #99ccee;
     font-style: normal;
   }
-  .chat-palette em {
-    color: #cc99ee;
+  .chat-palette i.unit-status {
+    color: #99eecc;
     font-style: normal;
   }
 }
@@ -170,10 +174,16 @@
   background-color: rgba(0,170,190,0.1);
 }
 /* ベース */
-#form-name {
+.form-name {
   text-shadow: inherit;
 }
-#form-name :checked {
+.chat .form-name {
+  color: inherit;
+}
+.chat .form-name option {
+  background-color: #000;
+  font-family: inherit;
+  font-weight: inherit;
 }
 .box #main-name1 {
   text-shadow: inherit;
@@ -386,12 +396,11 @@ dd[data-stt*="侵蝕"] .gauge[data-signal="monster"] i::before { background: non
 .logs dl dd.info.choice {
   color: #db5;
 }
-.logs dl dd.info.choice > i,
 .logs dl dd.info.choice > b,
 .logs dl dd.info.choice > s {
   display: inline-block;
 }
-.logs dl dd.info.choice > i {
+.logs dl dd.info.choice > b.result {
   margin: 1px .25em;
   padding: 0 .25em;
   border-width: 0px 1px;
@@ -399,21 +408,26 @@ dd[data-stt*="侵蝕"] .gauge[data-signal="monster"] i::before { background: non
   border-color: #eda7;
   border-radius: .5em;
   font-size: 94%;
-  font-style: normal;
+  font-weight: normal;
+  font-family: inherit;
   vertical-align: top;
   background-color: #fe01;
-  color: #eda;
+  color: #feb;
 }
 .logs dl dd.info.choice s {
   color: #888;
   text-decoration: none;
+}
+.logs dl dd.info.choice b.result {
+  background-color: #db52;
+  padding: 0 0.25em;
 }
 /* チャットログ：ダイス */
 .logs dl dd.info.dice::before {
   color: #f33;
 }
 .logs dl dd.info.dice {
-  color: #e55;
+  color: #e77;
   letter-spacing: 0.1rem;
 }
 .logs dl dd.info.dice i {
@@ -424,10 +438,10 @@ dd[data-stt*="侵蝕"] .gauge[data-signal="monster"] i::before { background: non
 }
 .logs dl dd.info.dice b,
 .logs dl dd.info.dice strong {
-  color: #f33;
+  color: #f55;
 }
 .logs dl dd.info.dice em {
-  color: #e90;
+  color: #eb0;
   font-weight: bold;
   -webkit-text-emphasis: none;
           text-emphasis: none;
@@ -486,6 +500,17 @@ dd[data-stt*="侵蝕"] .gauge[data-signal="monster"] i::before { background: non
   line-height: 1;
   text-shadow: none;
   opacity: 0.2;
+  animation-name: rewrited-mark-fade-in;
+  animation-duration: 0.1s;
+  animation-timing-function: ease-out;
+}
+@keyframes rewrited-mark-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0.2;
+  }
 }
 .logs dl dd span.rewrited::before {
   content: "\e9a2";
@@ -723,7 +748,7 @@ dd[data-stt*="侵蝕"] .gauge[data-signal="monster"] i::before { background: non
   opacity: 0.3;
 }
 /* 共有メモ */
-#memo-list:empty::before {
+#memo-list:not(:has(li:not(.removed)))::before {
   content: '共有メモ';
   opacity: 0.3;
 }

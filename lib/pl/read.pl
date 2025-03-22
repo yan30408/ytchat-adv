@@ -5,6 +5,7 @@ use open ":utf8";
 use open ":std";
 use Encode qw/encode decode/;
 use JSON::PP;
+use Time::Piece;
 
 ###################
 ### 読み込み処理
@@ -19,6 +20,7 @@ if(!$::in{'loadedLog'}){
   my $allsize = -s $dir.'log-all.dat';
   if($allsize > $presize){ $logfile = 'log-all.dat'; $reverseOn = 1; }
 }
+my $now = localtime;
 my @lines; my %palette;
 open(my $FH, '<', $dir.$logfile) or error "${logfile}が開けません";
 foreach($reverseOn ? (reverse <$FH>) : <$FH>) {
@@ -27,6 +29,7 @@ foreach($reverseOn ? (reverse <$FH>) : <$FH>) {
   $_ =~ s/"/\\"/g;
   $_ =~ s/\t/\\t/g;
   my ($num, $date, $tab, $name, $color, $comm, $info, $system, $user, $address) = split(/<>/, $_);
+  $color =~ s/^#{2,}/#/;
   # 初回読込時は各タブ最大100件まで読み込む
   if(!$::in{'loadedLog'}){
     next if $tablog{$tab} > 100;
@@ -36,7 +39,8 @@ foreach($reverseOn ? (reverse <$FH>) : <$FH>) {
     last if ($::in{'num'} > $num - 1);
   }
   #
-  my (undef, $time) = split(/ /, $date);
+  my $timePiece = Time::Piece->strptime($date, '%Y/%m/%d %H:%M:%S');
+  my $time = $timePiece->strftime($now->epoch - $timePiece->epoch > 60 * 60 * 12 ? '%Y/%m/%d %H:%M:%S' : '%H:%M:%S');
   my ($username, $userid) = $user =~ /^(.*)<([0-9a-zA-Z]+?)>$/;
   my $game;
   my $code;
@@ -47,8 +51,7 @@ foreach($reverseOn ? (reverse <$FH>) : <$FH>) {
       $_ =~ s#(\[.*?\])#<i>$1</i>#g;
       $_ =~ s# = ([0-9a-z.∞]+)$# = <strong>$1</strong>#gi;
       $_ =~ s# = ([0-9a-z.∞]+)# = <b>$1</b>#gi;
-      $_ =~ s# → (成功)$# → <strong>$1</strong>#gi;
-      $_ =~ s# → (失敗)$# → <strong class='fail'>$1</strong>#gi;
+      $_ =~ s# → ((?:成功|(?:自動)?失敗|／)+)$#" → ".stylizeSuccessAndFailure($1)#gie;
       #クリティカルをグラデにする
       my $crit = $_ =~ s/(クリティカル!\])/$1<em>/g;
       while($crit > 0){ $_ .= "</em>"; $crit--; }
@@ -59,6 +62,13 @@ foreach($reverseOn ? (reverse <$FH>) : <$FH>) {
       #
       $_ =~ s#\{(.*?)\}#{<span class='division'>$1</span>}#g;
     }
+    elsif($system eq 'choice') {
+      if($_ =~ s#(\(.+\) → )(.+?)$#$1#){
+        foreach my $result (split ",", $2) {
+          $_ .= "<b class='result'>$result</b>";
+        }
+      }
+    }
     elsif($system =~ /^unit/){
       $_ =~ s# (\[.*?\])# <i>$1</i>#g;
     }
@@ -66,10 +76,10 @@ foreach($reverseOn ? (reverse <$FH>) : <$FH>) {
   $info = join('<br>', @infos);
   
   if($system =~ /^(choice:list|deck)/){
-    $info =~ s#\[(.*?)\](?=\[|<br>|$)#<i>$1</i>#g;
+    $info =~ s#\[(.*?)\](?=\[|<br>|$)#<b class='result'>$1</b>#g;
   }
   elsif($system =~ /^(choice:table)/){
-    $info =~ s#(?<=:) \[(.*?)\](?=.+? → |$)#<i>$1</i>#g;
+    $info =~ s#(?<=:) \[(.*?)\](?=.+? → |$)#<b class='result'>$1</b>#g;
   }
   
   if($system eq 'palette'){
